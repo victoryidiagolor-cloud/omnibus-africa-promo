@@ -1,5 +1,6 @@
 /* =========================================================
    OMNIBUS AFRICA SERVICE PROMOTION POPUP
+   Improved carousel timing, progress indicator and dismissal
    ========================================================= */
 
 (function () {
@@ -43,6 +44,16 @@
 
   const imageBase = "https://storage.mlcdn.com/account_image/2758158/";
   const destination = "https://omnibusafrica.mailerpage.io/get-started";
+
+  const sessionKey = "oa_promo_dismissed";
+  const delay = 30000;
+  const interval = 5000;
+
+  let current = 0;
+  let timer = null;
+  let startTime = 0;
+  let remaining = interval;
+  let visible = false;
 
   const popup = document.createElement("div");
   popup.id = "oa-promo-popup";
@@ -306,6 +317,7 @@
       width: 0;
       height: 100%;
       background: #d71920;
+      transition: none;
     }
 
     #oa-promo-popup .oa-promo-hint {
@@ -379,9 +391,8 @@
 
     @media (prefers-reduced-motion: reduce) {
       #oa-promo-popup,
-      #oa-promo-popup *,
-      #oa-promo-popup *::before,
-      #oa-promo-popup *::after {
+      #oa-promo-popup .oa-promo-window,
+      #oa-promo-popup .oa-promo-slide {
         transition-duration: .01ms !important;
       }
     }
@@ -394,18 +405,8 @@
   const counter = popup.querySelector("#oa-promo-counter");
   const progress = popup.querySelector("#oa-promo-progress");
   const closeButton = popup.querySelector(".oa-promo-close");
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
-  const sessionKey = "oa_promo_dismissed";
-  const delay = 30000;
-  const interval = 5000;
-
-  let current = 0;
-  let timer = null;
-  let progressTimer = null;
-  let startTime = 0;
-  let remaining = interval;
-  let visible = false;
+  let progressFrame = null;
 
   // ANALYTICS TRACKING
   function trackPromoEvent(eventName, parameters = {}) {
@@ -421,6 +422,7 @@
     }
   }
 
+  // UPDATE THE DISPLAYED SLIDE AND COUNTER
   function updateSlide(index) {
     slides.forEach(function (slide, i) {
       slide.classList.toggle("oa-active", i === index);
@@ -432,54 +434,77 @@
       String(current + 1).padStart(2, "0") + " / " +
       String(slides.length).padStart(2, "0");
 
+    resetProgress();
+  }
+
+  // RESET THE PROGRESS INDICATOR
+  function resetProgress() {
+    if (progressFrame) {
+      cancelAnimationFrame(progressFrame);
+      progressFrame = null;
+    }
+
     progress.style.transition = "none";
     progress.style.width = "0%";
-
-    if (!reducedMotion.matches && !document.hidden && visible) {
-      requestAnimationFrame(function () {
-        progress.style.transition = "width " + interval + "ms linear";
-        progress.style.width = "100%";
-      });
-    }
   }
 
+  // STOP THE CURRENT CAROUSEL TIMER
   function stopCarousel() {
-    if (timer) clearTimeout(timer);
-    if (progressTimer) clearTimeout(progressTimer);
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
 
-    timer = null;
-    progressTimer = null;
+    if (progressFrame) {
+      cancelAnimationFrame(progressFrame);
+      progressFrame = null;
+    }
+
+    progress.style.transition = "none";
   }
 
+  // START OR RESUME THE CURRENT SLIDE'S FIVE-SECOND CYCLE
   function startCarousel() {
-    stopCarousel();
+    if (!visible || document.hidden) return;
 
-    if (!visible || document.hidden || reducedMotion.matches) return;
+    stopCarousel();
 
     startTime = Date.now();
 
-    progress.style.transition = "none";
-    progress.style.width = "0%";
+    const duration = Math.max(0, remaining);
 
-    requestAnimationFrame(function () {
-      progress.style.transition = "width " + remaining + "ms linear";
+    progress.style.transition = "none";
+
+    const completedPercentage =
+      ((interval - duration) / interval) * 100;
+
+    progress.style.width = completedPercentage + "%";
+
+    progressFrame = requestAnimationFrame(function () {
+      progress.style.transition = "width " + duration + "ms linear";
       progress.style.width = "100%";
+      progressFrame = null;
     });
 
     timer = setTimeout(function () {
       current = (current + 1) % slides.length;
-      updateSlide(current);
       remaining = interval;
+
+      updateSlide(current);
       startCarousel();
-    }, remaining);
+
+    }, duration);
   }
 
+  // OPEN THE POPUP
   function openPopup() {
     if (sessionStorage.getItem(sessionKey) === "1") return;
 
     visible = true;
+
     popup.classList.add("oa-promo-visible");
     popup.setAttribute("aria-hidden", "false");
+
     document.body.style.overflow = "hidden";
 
     trackPromoEvent("promo_popup_view", {
@@ -487,17 +512,22 @@
       total_slides: slides.length
     });
 
+    current = 0;
     remaining = interval;
+
     updateSlide(0);
 
     closeButton.focus();
+
     startCarousel();
   }
 
+  // CLOSE THE POPUP AND REMEMBER THE DISMISSAL
   function closePopup() {
     if (!visible) return;
 
     visible = false;
+
     stopCarousel();
 
     trackPromoEvent("promo_popup_close", {
@@ -513,11 +543,13 @@
     sessionStorage.setItem(sessionKey, "1");
   }
 
+  // CLOSE BUTTON
   closeButton.addEventListener("click", closePopup);
 
+  // BACKDROP CLICK
   popup.querySelector(".oa-promo-backdrop").addEventListener("click", closePopup);
 
-  // TRACK PROMOTIONAL IMAGE CLICKS
+  // TRACK IMAGE CLICKS, DISMISS POPUP, THEN ALLOW NORMAL NAVIGATION
   slides.forEach(function (slide, index) {
     slide.addEventListener("click", function () {
       const category = slide.querySelector(".oa-promo-category");
@@ -525,29 +557,43 @@
       trackPromoEvent("promo_popup_click", {
         popup_name: "Omnibus Africa Service Promotion",
         slide_number: index + 1,
-        service_category: category ? category.textContent.trim() : "Unknown",
+        service_category: category
+          ? category.textContent.trim()
+          : "Unknown",
         destination: "Get Started"
       });
+
+      // Save dismissal before the browser follows the link.
+      // Do not prevent the default anchor navigation.
+      closePopup();
     });
   });
 
+  // ESCAPE KEY
   popup.addEventListener("keydown", function (event) {
     if (event.key === "Escape") {
       closePopup();
     }
   });
 
+  // PAUSE WHEN THE VISITOR LEAVES THE TAB; RESUME WITH REMAINING TIME
   document.addEventListener("visibilitychange", function () {
-    if (document.hidden) {
+    if (document.hidden && visible) {
       if (timer) {
-        remaining = Math.max(0, remaining - (Date.now() - startTime));
+        remaining = Math.max(
+          0,
+          remaining - (Date.now() - startTime)
+        );
       }
+
       stopCarousel();
-    } else if (visible) {
+
+    } else if (!document.hidden && visible) {
       startCarousel();
     }
   });
 
+  // DISPLAY AFTER THE ORIGINAL 30-SECOND DELAY
   setTimeout(openPopup, delay);
 
 })();
