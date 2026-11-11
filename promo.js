@@ -82,7 +82,7 @@
             </span>
             <span class="oa-promo-rating-value">4.5</span>
           </div>
-          <p>Loved by our clients across <strong>7 countries, 3 continents.</strong></p>
+          <p>Loved by our clients across <strong>10+ countries, 5 continents.</strong></p>
         </div>
 
         <div class="oa-promo-footer">
