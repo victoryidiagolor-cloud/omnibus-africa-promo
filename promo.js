@@ -1,13 +1,47 @@
 /* =========================================================
    OMNIBUS AFRICA SERVICE PROMOTION POPUP
-   Improved carousel timing, progress indicator and dismissal
+   Page exclusions + carousel timing + progress indicator
    ========================================================= */
 
 (function () {
+
+  /* =======================================================
+     1. PAGE EXCLUSIONS
+     ======================================================= */
+
+  const excludedPages = [
+    "/get-started",
+    "/career-opportunities",
+    "/careers",
+    "/osp-application",
+    "/project-engagement-checkout",
+    "/policies",
+    "/social-media-management"
+  ];
+
+  // Normalise the current page path.
+  // This also handles URLs with trailing slashes.
+  const currentPath = window.location.pathname.replace(/\/+$/, "") || "/";
+
+  // Do not initialise the popup on excluded pages.
+  if (excludedPages.includes(currentPath)) {
+    return;
+  }
+
+  /* =======================================================
+     2. PREVENT DUPLICATE INITIALISATION
+     ======================================================= */
+
   if (window.oaPromoInitialized) return;
   window.oaPromoInitialized = true;
 
+
+  /* =======================================================
+     3. PROMOTIONAL SLIDES
+     ======================================================= */
+
   const slidesData = [
+
     // CREATIVE ENGAGEMENT
     ["ghkGawwK8M0Vo3pMV6wyFdC4KYo1BvhWgaWjvKDa.jpg", "CREATIVE ENGAGEMENT"],
     ["H3EvI0oTMpOTuRnywbdh0HviDVQDxjSi5I4NTvuy.jpg", "CREATIVE ENGAGEMENT"],
@@ -40,7 +74,13 @@
     ["lLsYRuXuiriB79jVG1GWAkNGCmG6dj3AbxE2Qxkj.jpg", "OUTDOOR MARKETING PRINTS"],
     ["ploKqsjNwbwZ2KCEeSg8OZLdbEx1xpnxZTClR7NK.jpg", "OUTDOOR MARKETING PRINTS"],
     ["lMn3GiFjVDnYXzrB6Oiff28jqO0m2dm2aqYtfeJJ.jpg", "OUTDOOR MARKETING PRINTS"]
+
   ];
+
+
+  /* =======================================================
+     4. CONFIGURATION
+     ======================================================= */
 
   const imageBase = "https://storage.mlcdn.com/account_image/2758158/";
   const destination = "https://omnibusafrica.mailerpage.io/get-started";
@@ -54,6 +94,11 @@
   let startTime = 0;
   let remaining = interval;
   let visible = false;
+
+
+  /* =======================================================
+     5. CREATE POPUP
+     ======================================================= */
 
   const popup = document.createElement("div");
   popup.id = "oa-promo-popup";
@@ -107,6 +152,11 @@
       </div>
     </div>
   `;
+
+
+  /* =======================================================
+     6. POPUP STYLES
+     ======================================================= */
 
   const style = document.createElement("style");
 
@@ -398,6 +448,11 @@
     }
   `;
 
+
+  /* =======================================================
+     7. ADD POPUP TO PAGE
+     ======================================================= */
+
   document.head.appendChild(style);
   document.body.appendChild(popup);
 
@@ -408,8 +463,13 @@
 
   let progressFrame = null;
 
-  // ANALYTICS TRACKING
+
+  /* =======================================================
+     8. ANALYTICS TRACKING
+     ======================================================= */
+
   function trackPromoEvent(eventName, parameters = {}) {
+
     if (typeof window.gtag === "function") {
       window.gtag("event", eventName, {
         event_category: "Promotional Popup",
@@ -420,10 +480,16 @@
     if (typeof window.fbq === "function") {
       window.fbq("trackCustom", eventName, parameters);
     }
+
   }
 
-  // UPDATE THE DISPLAYED SLIDE AND COUNTER
+
+  /* =======================================================
+     9. UPDATE DISPLAYED SLIDE
+     ======================================================= */
+
   function updateSlide(index) {
+
     slides.forEach(function (slide, i) {
       slide.classList.toggle("oa-active", i === index);
     });
@@ -435,10 +501,16 @@
       String(slides.length).padStart(2, "0");
 
     resetProgress();
+
   }
 
-  // RESET THE PROGRESS INDICATOR
+
+  /* =======================================================
+     10. RESET PROGRESS INDICATOR
+     ======================================================= */
+
   function resetProgress() {
+
     if (progressFrame) {
       cancelAnimationFrame(progressFrame);
       progressFrame = null;
@@ -446,10 +518,16 @@
 
     progress.style.transition = "none";
     progress.style.width = "0%";
+
   }
 
-  // STOP THE CURRENT CAROUSEL TIMER
+
+  /* =======================================================
+     11. STOP CAROUSEL
+     ======================================================= */
+
   function stopCarousel() {
+
     if (timer) {
       clearTimeout(timer);
       timer = null;
@@ -461,10 +539,16 @@
     }
 
     progress.style.transition = "none";
+
   }
 
-  // START OR RESUME THE CURRENT SLIDE'S FIVE-SECOND CYCLE
+
+  /* =======================================================
+     12. START OR RESUME CAROUSEL
+     ======================================================= */
+
   function startCarousel() {
+
     if (!visible || document.hidden) return;
 
     stopCarousel();
@@ -487,6 +571,7 @@
     });
 
     timer = setTimeout(function () {
+
       current = (current + 1) % slides.length;
       remaining = interval;
 
@@ -494,10 +579,16 @@
       startCarousel();
 
     }, duration);
+
   }
 
-  // OPEN THE POPUP
+
+  /* =======================================================
+     13. OPEN POPUP
+     ======================================================= */
+
   function openPopup() {
+
     if (sessionStorage.getItem(sessionKey) === "1") return;
 
     visible = true;
@@ -520,10 +611,16 @@
     closeButton.focus();
 
     startCarousel();
+
   }
 
-  // CLOSE THE POPUP AND REMEMBER THE DISMISSAL
+
+  /* =======================================================
+     14. CLOSE POPUP
+     ======================================================= */
+
   function closePopup() {
+
     if (!visible) return;
 
     visible = false;
@@ -541,17 +638,27 @@
     document.body.style.overflow = "";
 
     sessionStorage.setItem(sessionKey, "1");
+
   }
+
+
+  /* =======================================================
+     15. EVENT LISTENERS
+     ======================================================= */
 
   // CLOSE BUTTON
   closeButton.addEventListener("click", closePopup);
 
+
   // BACKDROP CLICK
   popup.querySelector(".oa-promo-backdrop").addEventListener("click", closePopup);
 
-  // TRACK IMAGE CLICKS, DISMISS POPUP, THEN ALLOW NORMAL NAVIGATION
+
+  // IMAGE CLICKS
   slides.forEach(function (slide, index) {
+
     slide.addEventListener("click", function () {
+
       const category = slide.querySelector(".oa-promo-category");
 
       trackPromoEvent("promo_popup_click", {
@@ -563,22 +670,31 @@
         destination: "Get Started"
       });
 
-      // Save dismissal before the browser follows the link.
-      // Do not prevent the default anchor navigation.
       closePopup();
+
     });
+
   });
+
 
   // ESCAPE KEY
   popup.addEventListener("keydown", function (event) {
+
     if (event.key === "Escape") {
       closePopup();
     }
+
   });
 
-  // PAUSE WHEN THE VISITOR LEAVES THE TAB; RESUME WITH REMAINING TIME
+
+  /* =======================================================
+     16. PAUSE WHEN VISITOR LEAVES TAB
+     ======================================================= */
+
   document.addEventListener("visibilitychange", function () {
+
     if (document.hidden && visible) {
+
       if (timer) {
         remaining = Math.max(
           0,
@@ -589,11 +705,18 @@
       stopCarousel();
 
     } else if (!document.hidden && visible) {
+
       startCarousel();
+
     }
+
   });
 
-  // DISPLAY AFTER THE ORIGINAL 30-SECOND DELAY
+
+  /* =======================================================
+     17. DISPLAY AFTER 30 SECONDS
+     ======================================================= */
+
   setTimeout(openPopup, delay);
 
 })();
